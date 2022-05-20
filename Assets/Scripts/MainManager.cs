@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
 
 public class MainManager : MonoBehaviour
 {
@@ -11,6 +12,7 @@ public class MainManager : MonoBehaviour
     public Rigidbody Ball;
 
     public Text ScoreText;
+    public Text Ranking;
     public GameObject GameOverText;
     
     private bool m_Started = false;
@@ -18,7 +20,14 @@ public class MainManager : MonoBehaviour
     
     private bool m_GameOver = false;
 
+    private static string bestPlayer;
+    private static int bestScore;
+
     
+    private void Awake() {  // new added
+            LoadGame();     // new added
+    }                       // new added
+
     // Start is called before the first frame update
     void Start()
     {
@@ -36,6 +45,7 @@ public class MainManager : MonoBehaviour
                 brick.onDestroyed.AddListener(AddPoint);
             }
         }
+        SetBestPlayer();  // new added
     }
 
     private void Update()
@@ -65,12 +75,67 @@ public class MainManager : MonoBehaviour
     void AddPoint(int point)
     {
         m_Points += point;
+        PlayerDataTransfer.Instance.Score = m_Points; // new added 
         ScoreText.text = $"Score : {m_Points}";
     }
 
     public void GameOver()
     {
         m_GameOver = true;
+        UpdateBestPlayer(); // needs to be added
         GameOverText.SetActive(true);
     }
+
+    /*
+    New functionalities from here:
+        - Load and Save to json file 
+        - UpdateBestPlayer() fnction when game over
+        - SetBestPlayer() when awake (into Ranking text) 
+    */
+    private void UpdateBestPlayer(){
+        int currentScore = PlayerDataTransfer.Instance.Score;   
+
+        if(currentScore > bestScore){
+            bestPlayer = PlayerDataTransfer.Instance.PlayerName;
+            bestScore = currentScore;
+
+            Ranking.text = $"Best Score: {bestPlayer}: {bestScore}";
+            SaveGame(bestPlayer,bestScore);
+        }
+    }
+
+    public void SetBestPlayer(){
+        if(bestPlayer == null && bestScore == 0){
+            ScoreText.text = "";
+        } else {
+            Ranking.text = $"Best Score: {bestPlayer}: {bestScore}";
+        }
+    }
+
+    public void SaveGame(string bestPlayerName, int bestScore){
+        SaveData data = new SaveData();
+        data.TheBestPlayer = bestPlayerName;
+        data.HighiestScore = bestScore;
+        string json = JsonUtility.ToJson(data);
+        File.WriteAllText(Application.persistentDataPath + "savefil.json", json);
+    }
+
+    public void LoadGame(){
+        string path = Application.persistentDataPath + "savefil.json";
+
+        if (File.Exists(path)){        
+            string json = File.ReadAllText(path);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            bestPlayer = data.TheBestPlayer;
+            bestScore = data.HighiestScore;
+        } 
+    }
+
+     [System.Serializable]
+    class SaveData
+    {
+        public int HighiestScore;
+        public string TheBestPlayer;
+    }
+
 }
